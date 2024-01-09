@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -12,6 +13,8 @@ import { House } from 'src/databases/entities/House.entity';
 import { CreateHouseDto } from './dto/create-house.dto';
 import { UpdateHouseDto } from './dto/update-house.dto';
 import { UsersService } from '../users/users.service';
+import { BuyHouseDto } from './dto/buy-houser.dto';
+import { USER_ROLE } from 'src/enums/user-role.enum';
 
 @Injectable()
 export class HousesService {
@@ -26,9 +29,12 @@ export class HousesService {
     try {
       const owner = await this.userService.findOne(createHouseDto.ownerdId);
 
+      const seller = await this.userService.findOne(createHouseDto.sellerId);
+
       const house = this.houseRepository.create(createHouseDto);
 
       house.owner = owner;
+      house.seller = seller;
 
       await this.houseRepository.save(house);
 
@@ -42,11 +48,40 @@ export class HousesService {
     }
   }
 
+  async buyHouse(houseId: number, buyHouseDto: BuyHouseDto) {
+    try {
+      const user = await this.userService.findOne(buyHouseDto.userId);
+
+      if (user.role !== USER_ROLE.BUYER) {
+        throw new ConflictException('User role isnt BUYER');
+      }
+
+      const house = await this.findOne(houseId);
+
+      if (!house.seller) {
+        throw new ConflictException('House isnt to sell');
+      }
+
+      house.owner = user;
+      house.seller = null;
+
+      await this.houseRepository.save(house);
+
+      return house;
+    } catch (error) {
+      throw new HttpException(
+        error?.message,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async findAll() {
     try {
       const houses = await this.houseRepository.find({
         relations: {
           owner: true,
+          seller: true,
         },
       });
       return houses;
@@ -60,7 +95,13 @@ export class HousesService {
       throw new BadRequestException();
     }
     try {
-      const house = await this.houseRepository.findOneByOrFail({ id });
+      const house = await this.houseRepository.findOneOrFail({
+        where: { id },
+        relations: {
+          seller: true,
+          owner: true,
+        },
+      });
 
       return house;
     } catch (error) {
@@ -68,11 +109,38 @@ export class HousesService {
     }
   }
 
-  update(id: number, updateHouseDto: UpdateHouseDto) {
-    return `This action updates a #${id} house`;
+  async update(id: number, updateHouseDto: UpdateHouseDto) {
+    try {
+      const { affected } = await this.houseRepository.update(
+        id,
+        updateHouseDto,
+      );
+
+      if (affected === 0) {
+        throw new NotFoundException();
+      }
+
+      return await this.findOne(id);
+    } catch (error) {
+      throw new HttpException(
+        error?.message,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} house`;
+  async remove(id: number) {
+    try {
+      const { affected } = await this.houseRepository.softDelete(id);
+
+      if (affected === 0) {
+        throw new NotFoundException();
+      }
+    } catch (error) {
+      throw new HttpException(
+        error?.message,
+        error?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

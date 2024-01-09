@@ -15,6 +15,7 @@ import { CreateHouseDto } from './dto/create-house.dto';
 import { UpdateHouseDto } from './dto/update-house.dto';
 import { Roles } from 'src/decorators/roles.decorator';
 import { USER_ROLE } from 'src/enums/user-role.enum';
+import { BuyHouseDto } from './dto/buy-houser.dto';
 
 @Controller('houses')
 export class HousesController {
@@ -26,6 +27,14 @@ export class HousesController {
   @Post()
   create(@Body() createHouseDto: CreateHouseDto) {
     return this.housesService.create(createHouseDto);
+  }
+
+  @Roles([USER_ROLE.BUYER])
+  @UseGuards(RoleGuard)
+  @UseGuards(AuthGuard)
+  @Post(':id')
+  buyHouse(@Param('id') id: string, @Body() buyHouseDto: BuyHouseDto) {
+    return this.housesService.buyHouse(+id, buyHouseDto);
   }
 
   @Get()

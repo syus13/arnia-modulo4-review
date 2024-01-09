@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { User } from 'src/databases/entities/User.entity';
+import { User } from '../../databases/entities/User.entity';
 import { UserRegisterDto } from './dto/user-register.dto';
 import { UserLoginDto } from './dto/user-login.dto';
 import { UsersService } from '../users/users.service';
@@ -42,7 +42,7 @@ export class AuthService {
       const user = await this.userService.findUserByEmail(userLoginDto.email);
 
       if (!user) {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException('User not found');
       }
 
       const passwordVerification = await bcrypt.compare(
@@ -51,7 +51,7 @@ export class AuthService {
       );
 
       if (!passwordVerification) {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException('User Unauthorized');
       }
 
       const payload = {

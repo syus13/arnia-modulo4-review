@@ -24,4 +24,7 @@ export class CreateHouseDto {
 
   @IsNumber()
   ownerdId: number;
+
+  @IsNumber()
+  sellerId: number;
 }
